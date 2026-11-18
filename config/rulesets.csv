@@ -1,3 +1,3 @@
-﻿owner,repo,branch,ruleset_name,enforcement,require_pr,required_approvals,block_force_push,block_deletion
-Waleed-DTS-Abacus,lab-rulesets-demo,moj-uat,protect-uat,active,true,0,true,true
-Waleed-DTS-Abacus,lab-rulesets-demo,moj,protect-prod,active,true,0,true,true
+﻿owner,repo,branch,ruleset_name,enforcement,require_pr,required_approvals,block_force_push,block_deletion,required_status_check
+Waleed-DTS-Abacus,lab-rulesets-demo,moj-uat,protect-uat,active,true,0,true,true,validate-promotion
+Waleed-DTS-Abacus,lab-rulesets-demo,moj,protect-prod,active,true,0,true,true,validate-promotion
