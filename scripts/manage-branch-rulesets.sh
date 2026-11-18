@@ -17,8 +17,7 @@ done
     exit 1
 }
 
-expected_header="owner,repo,branch,ruleset_name,enforcement,require_pr,required_approvals,block_force_push,block_deletion"
-
+expected_header="owner,repo,branch,ruleset_name,enforcement,require_pr,required_approvals,block_force_push,block_deletion,required_status_check"
 # Remove UTF-8 BOM and Windows CRLF
 header=$(head -n 1 "$CSV_FILE")
 header="${header#$'\xef\xbb\xbf'}"
@@ -50,12 +49,12 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     # This CSV format uses simple, unquoted values.
     # Reject unsupported commas/extra columns.
     comma_count="${line//[^,]/}"
-    if [[ ${#comma_count} -ne 8 ]]; then
+    if [[ ${#comma_count} -ne 9 ]]; then
         echo "ERROR: Invalid number of CSV columns at line $line_number" >&2
         exit 1
     fi
 
-    IFS=, read -r owner repo branch ruleset_name enforcement require_pr required_approvals block_force_push block_deletion <<< "$line"
+    IFS=, read -r owner repo branch ruleset_name enforcement require_pr required_approvals block_force_push block_deletion required_status_check <<< "$line"
 
     if [[ -z "$owner" || -z "$repo" || -z "$branch" || -z "$ruleset_name" ]]; then
         echo "ERROR: Missing required CSV value at line $line_number" >&2
@@ -113,7 +112,7 @@ echo ""
 echo "PHASE 2: Applying GitHub Rulesets..."
 
 for line in "${validated_rows[@]}"; do
-    IFS=, read -r owner repo branch ruleset_name enforcement require_pr required_approvals block_force_push block_deletion <<< "$line"
+    IFS=, read -r owner repo branch ruleset_name enforcement require_pr required_approvals block_force_push block_deletion required_status_check <<< "$line"
 
     echo "Processing $owner/$repo -> $branch ($ruleset_name)"
 
@@ -121,7 +120,8 @@ for line in "${validated_rows[@]}"; do
         --argjson require_pr "$require_pr" \
         --argjson approvals "$required_approvals" \
         --argjson force "$block_force_push" \
-        --argjson deletion "$block_deletion" '
+        --argjson deletion "$block_deletion" \
+        --arg check "$required_status_check" '
         [
             (if $require_pr then
                 {
@@ -135,8 +135,27 @@ for line in "${validated_rows[@]}"; do
                     }
                 }
             else empty end),
-            (if $force then {type: "non_fast_forward"} else empty end),
-            (if $deletion then {type: "deletion"} else empty end)
+
+            (if $force then
+                {type: "non_fast_forward"}
+            else empty end),
+
+            (if $deletion then
+                {type: "deletion"}
+            else empty end),
+
+            (if $check != "" then
+                {
+                    type: "required_status_checks",
+                    parameters: {
+                        strict_required_status_checks_policy: false,
+                        do_not_enforce_on_create: false,
+                        required_status_checks: [
+                            {context: $check}
+                        ]
+                    }
+                }
+            else empty end)
         ]')
 
     payload=$(jq -n \
